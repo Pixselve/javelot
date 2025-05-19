@@ -66,7 +66,7 @@ impl FakeFilesystem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Node {
     File(File),
     Folder(Folder),
@@ -120,14 +120,14 @@ impl Node {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct File {
     pub(crate) name: String,
     pub(crate) size: i64,
     pub(crate) download_url: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Folder {
     pub(crate) name: String,
 }
@@ -137,7 +137,7 @@ mod tests {
     use super::*;
     mod read_node {
         use super::*;
-        use assert_unordered::assert_eq_unordered;
+        use assert_unordered::assert_eq_unordered_sort;
 
         #[test]
         fn it_reads_root() {
@@ -163,7 +163,7 @@ mod tests {
             });
             fs.files.insert(PathBuf::from("/hello"), folder.clone());
             fs.files.insert(PathBuf::from("/hello.txt"), file.clone());
-            assert_eq_unordered!(
+            assert_eq_unordered_sort!(
                 fs.read_dir(&PathBuf::from("/")),
                 Some(vec![
                     (PathBuf::from("/hello.txt"), &file),
@@ -186,7 +186,7 @@ mod tests {
             fs.files.insert(PathBuf::from("/hello"), folder.clone());
             fs.files
                 .insert(PathBuf::from("/hello/hello.txt"), file.clone());
-            assert_eq_unordered!(
+            assert_eq_unordered_sort!(
                 fs.read_dir(&PathBuf::from("/hello")),
                 Some(vec![(PathBuf::from("/hello/hello.txt"), &file)])
             );
