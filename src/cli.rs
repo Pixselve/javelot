@@ -11,7 +11,8 @@ pub struct Cli {
     pub api_key: String,
 
     /// The address the WebDav server will listen to.
-    #[clap(long, default_value_t = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 3000))]
+    #[clap(long, env = "ADDRESS", default_value_t = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 3000)
+    )]
     pub address: SocketAddr,
 
     /// Debrid service file refresh interval in seconds.
