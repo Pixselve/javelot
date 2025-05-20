@@ -30,13 +30,16 @@ pub(super) async fn get_handler(req: Request, path: PathBuf, app_state: AppState
         match node {
             Node::File(file) => {
                 let range_header = req.headers().get("Range").cloned();
-                let mut request_builder = app_state.reqwest_client.get(&file.download_url);
 
-                if let Some(range) = range_header {
-                    request_builder = request_builder.header("Range", range);
-                }
-
-                let reqwest_response = request_builder.send().await.unwrap();
+                let reqwest_response = app_state
+                    .torbox_client
+                    .torrent_stream(
+                        file.download_details.0,
+                        file.download_details.1,
+                        range_header,
+                    )
+                    .await
+                    .unwrap();
 
                 let status = reqwest_response.status();
                 let headers = reqwest_response.headers().clone();

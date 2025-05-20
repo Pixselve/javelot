@@ -1,13 +1,19 @@
 use anyhow::Context;
+use clap::builder::styling::Reset;
+use headers::HeaderValue;
+use moka::future::Cache;
+use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::info;
+use std::time::Duration;
+use tracing::{debug, info};
 
 #[derive(Clone, Debug)]
 pub struct Torbox {
     api_key: String,
     base_url: String,
     client: reqwest::Client,
+    cache: Cache<String, String>,
 }
 
 impl Torbox {
@@ -16,18 +22,19 @@ impl Torbox {
             api_key,
             base_url: "https://api.torbox.app".to_string(),
             client: reqwest::Client::new(),
+            cache: Cache::builder()
+                .time_to_idle(Duration::from_secs(60 * 60 * 3))
+                .build(),
         }
     }
 
     pub async fn list_torrents(&self) -> anyhow::Result<Vec<Torrent>> {
-        info!("{}", self.api_key);
         let url = format!("{}/v1/api/torrents/mylist", self.base_url);
         let request = self
             .client
             .request(reqwest::Method::GET, url)
             .bearer_auth(&self.api_key);
         let resp = request.send().await.context("Failed to send request")?;
-        info!("Got response: {:?}", resp);
         if !resp.status().is_success() {
             anyhow::bail!("Request failed: {}", resp.status());
         }
@@ -35,7 +42,64 @@ impl Torbox {
             .json::<ListTorrentsResponse>()
             .await
             .context("Failed to parse json")?;
-        Ok(json.data)
+        let active_torrents: Vec<Torrent> = json
+            .data
+            .into_iter()
+            .filter(|torrent| torrent.download_present)
+            .collect();
+        Ok(active_torrents)
+    }
+
+    pub async fn torrent_stream(
+        &self,
+        torrent_id: i64,
+        file_id: i64,
+        range_header: Option<HeaderValue>,
+    ) -> anyhow::Result<Response> {
+        let key = format!("torrent_id:{},file_id:{}", torrent_id, file_id);
+
+        let url = self
+            .cache
+            .try_get_with(key, async {
+                info!("File {} {} not present in cache", file_id, torrent_id);
+                let url = format!("{}/v1/api/torrents/requestdl", &self.base_url);
+                let mut request = self
+                    .client
+                    .request(reqwest::Method::GET, url)
+                    .query(&[
+                        ("token", self.api_key.to_owned()),
+                        ("torrent_id", torrent_id.to_string()),
+                        ("file_id", file_id.to_string()),
+                    ])
+                    .bearer_auth(&self.api_key);
+                let resp = request.send().await.context("Failed to send request")?;
+                if !resp.status().is_success() {
+                    anyhow::bail!("Request failed: {}", resp.status());
+                }
+                let json = resp
+                    .json::<RequestDownloadLinkResponse>()
+                    .await
+                    .context("Failed to parse json")?;
+                let download_url = json.data;
+                Ok(download_url)
+            })
+            .await;
+
+        if let Ok(url) = url {
+            let mut request = self
+                .client
+                .request(reqwest::Method::GET, url)
+                .bearer_auth(&self.api_key);
+
+            if let Some(range) = range_header {
+                request = request.header("Range", range);
+            }
+
+            let resp = request.send().await.context("Failed to send request")?;
+            return Ok(resp);
+        }
+
+        anyhow::bail!("Failed to download torrent file");
     }
 }
 
@@ -132,4 +196,13 @@ pub struct File {
     pub short_name: String,
     #[serde(rename = "absolute_path")]
     pub absolute_path: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RequestDownloadLinkResponse {
+    pub success: bool,
+    pub error: Value,
+    pub detail: String,
+    pub data: String,
 }

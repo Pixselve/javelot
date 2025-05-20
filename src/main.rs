@@ -10,8 +10,8 @@ use crate::fake_file_system::{FakeFilesystem, File, Folder, Node};
 use crate::shows::parse_shows_from_torrents;
 use crate::torbox_client::Torbox;
 use anyhow::Context;
-use axum::routing::any;
 use axum::Router;
+use axum::routing::any;
 use clap::Parser;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -42,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
         torbox_client: Arc::new(torbox_client),
     };
 
-    start_refresh_job(app_state.clone(), cli.api_key, cli.refresh_interval).await;
+    start_refresh_job(app_state.clone(), cli.refresh_interval).await;
 
     let app = Router::new()
         .route("/", any(webdav_handler))
@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn refresh_filesystem(app_state: AppState, api_key: &str) -> anyhow::Result<()> {
+async fn refresh_filesystem(app_state: AppState) -> anyhow::Result<()> {
     info!("Refreshing filesystem...");
 
     let torrents = app_state.torbox_client.list_torrents().await?;
@@ -93,14 +93,17 @@ async fn refresh_filesystem(app_state: AppState, api_key: &str) -> anyhow::Resul
             for episode in &season.episodes {
                 let episode_folder = PathBuf::from(&episode.file_name);
                 let episode_path = season_path.join(episode_folder);
-                fake_fs.add_node(&episode_path, Node::File(File {
-                    name: episode.file_name.clone(),
-                    size: episode.size,
-                    download_url: format!(
-                        "https://api.torbox.app/v1/api/torrents/requestdl?token={}&torrent_id={}&file_id={}&redirect=true",
-                        api_key, episode.torbox_file_metadata.torrent_id, episode.torbox_file_metadata.file_id
-                    )
-                }))
+                fake_fs.add_node(
+                    &episode_path,
+                    Node::File(File {
+                        name: episode.file_name.clone(),
+                        size: episode.size,
+                        download_details: (
+                            episode.torbox_file_metadata.torrent_id,
+                            episode.torbox_file_metadata.file_id,
+                        ),
+                    }),
+                )
             }
         }
     }
@@ -109,14 +112,14 @@ async fn refresh_filesystem(app_state: AppState, api_key: &str) -> anyhow::Resul
     Ok(())
 }
 
-async fn start_refresh_job(app_state: AppState, api_key: String, refresh_interval: u64) {
+async fn start_refresh_job(app_state: AppState, refresh_interval: u64) {
     let refresh_interval = time::Duration::from_secs(refresh_interval);
     let mut interval = tokio::time::interval(refresh_interval);
 
     tokio::spawn(async move {
         loop {
             interval.tick().await;
-            if let Err(e) = refresh_filesystem(app_state.clone(), &api_key).await {
+            if let Err(e) = refresh_filesystem(app_state.clone()).await {
                 tracing::error!("Failed to refresh filesystem: {:?}", e);
             }
         }

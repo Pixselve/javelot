@@ -124,7 +124,7 @@ impl Node {
 pub struct File {
     pub(crate) name: String,
     pub(crate) size: i64,
-    pub(crate) download_url: String,
+    pub(crate) download_details: (i64, i64),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -159,7 +159,7 @@ mod tests {
             let file = Node::File(File {
                 name: "hello.txt".to_string(),
                 size: 1200,
-                download_url: "https://www.google.com/".to_string(),
+                download_details: (-1, -1),
             });
             fs.files.insert(PathBuf::from("/hello"), folder.clone());
             fs.files.insert(PathBuf::from("/hello.txt"), file.clone());
@@ -181,7 +181,7 @@ mod tests {
             let file = Node::File(File {
                 name: "hello.txt".to_string(),
                 size: 1200,
-                download_url: "https://www.google.com/".to_string(),
+                download_details: (-1, -1),
             });
             fs.files.insert(PathBuf::from("/hello"), folder.clone());
             fs.files
