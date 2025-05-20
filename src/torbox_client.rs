@@ -1,12 +1,11 @@
 use anyhow::Context;
-use clap::builder::styling::Reset;
 use headers::HeaderValue;
 use moka::future::Cache;
 use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
-use tracing::{debug, info};
+use tracing::info;
 
 #[derive(Clone, Debug)]
 pub struct Torbox {
@@ -63,7 +62,7 @@ impl Torbox {
             .try_get_with(key, async {
                 info!("File {} {} not present in cache", file_id, torrent_id);
                 let url = format!("{}/v1/api/torrents/requestdl", &self.base_url);
-                let mut request = self
+                let request = self
                     .client
                     .request(reqwest::Method::GET, url)
                     .query(&[

@@ -21,7 +21,6 @@ use tracing::info;
 #[derive(Clone)]
 struct AppState {
     fake_file_system: Arc<Mutex<FakeFilesystem>>,
-    reqwest_client: reqwest::Client,
     torbox_client: Arc<Torbox>,
 }
 
@@ -33,12 +32,10 @@ async fn main() -> anyhow::Result<()> {
 
     let fake_fs = FakeFilesystem::new_with_root();
 
-    let client = reqwest::Client::new();
     let torbox_client = Torbox::new(cli.api_key.clone());
 
     let app_state = AppState {
         fake_file_system: Arc::new(Mutex::new(fake_fs)),
-        reqwest_client: client.clone(),
         torbox_client: Arc::new(torbox_client),
     };
 
