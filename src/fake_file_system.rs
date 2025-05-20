@@ -3,6 +3,7 @@ use axum::http;
 use axum::http::StatusCode;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
+use time::OffsetDateTime;
 use urlencoding::encode;
 use webdav_meta::xml;
 use webdav_meta::xml::nonempty::NonEmpty;
@@ -97,13 +98,15 @@ impl Node {
                 (uri, properties)
             }
             Node::Folder(_) => {
+                let now_time = OffsetDateTime::now_utc();
                 let uri = http::Uri::builder()
                     .path_and_query(format!("/{}/", components.join("/")))
                     .build()
                     .context("couldn't build URI")?;
                 let properties = xml::elements::Properties::new()
                     .with(xml::properties::ResourceType::collection())
-                    .with(xml::properties::ContentLength(20));
+                    .with(xml::properties::ContentLength(2000))
+                    .with(xml::properties::CreationDate(now_time));
                 (uri, properties)
             }
         };
