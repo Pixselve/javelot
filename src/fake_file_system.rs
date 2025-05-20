@@ -102,7 +102,8 @@ impl Node {
                     .build()
                     .context("couldn't build URI")?;
                 let properties = xml::elements::Properties::new()
-                    .with(xml::properties::ResourceType::collection());
+                    .with(xml::properties::ResourceType::collection())
+                    .with(xml::properties::ContentLength(20));
                 (uri, properties)
             }
         };
